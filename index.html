@@ -846,7 +846,7 @@ function startMusic(){if(musicOn||!AC||!MUS_OK)return;musicOn=true;stepN=0;(func
   if(!musicOn)return;const BTH=(mode==='boss'&&typeof G!=='undefined'&&G&&G.boss&&!G.boss.doom&&BT[G.boss.pi])||null,m=BTH?{ms:BTH.ms,ch:'dark'}:(MUSM[mode]||MUSM.world),sn=stepN%64,bar=(sn>>4)&3,i=sn&15,ch=CH[m.ch][bar],sec=m.ms/1000;
   if(!muted&&!ambOn&&!window.boomOn&&!window.doomThOn&&!(G&&G.boss&&G.boss.state==='dying')){   // boss ölürken / uzay molasında müzik susar
     const RG=(mode==='world'&&G&&G.area==='world')?REG[G.loc]:null;
-    if(BTH)BTH.run(sn,i,bar,sec);else if(RG){
+    if(BTH){const _g=SFXGAIN;SFXGAIN=1.05;try{epicRun(BTH,sn,i,bar,sec)}finally{SFXGAIN=_g}}else if(RG){
       if(i%2===0)tone(NOTE(qn(ch[0]+(i%8===6?12:0),RG.sc)),sec*1.7,RG.bass,RG.bass==='sine'?.08:.06);
       const ai=ARP[i];if(i%2===0||RG.sc)RG.arp(NOTE(qn(ch[1][ai],RG.sc)),sec*.9,.03);
       RG.perc(i,sn,ch);
@@ -928,52 +928,51 @@ function buySfx(n){window.__buy=1;sfx(n)}
   document.addEventListener('click',()=>{const n=pend;pend=null;if(window.__buy){window.__buy=0;return}if(n&&AC&&!muted)sfx(n)})})();
 
 /* ===== boss temaları: her klasik boss kendi konusuna uygun müzikle çıkar (DOOM'un teması ayrı, ona dokunulmaz) ===== */
-function _lead(T,bar,i,riff,base,fn){for(const e of riff)if(e[0]===i)fn(NOTE(T.roots[bar]+base+e[1]),e[2])}
+const _QUAL={m:[0,3,7],M:[0,4,7],d:[0,3,6]};
+function epicRun(T,sn,i,bar,sec){   // ortak epik motor: gür davul, güç akorları, pompalanan bas, çift katlı ana melodi
+  const r=T.roots[bar],q=_QUAL[T.qual[bar]]||_QUAL.m,rf=(bar&1)?T.rB:T.rA,last=bar===3;
+  // davul
+  if(i%4===0){tone(155,.15,'sine',.4,40);tone(60,.2,'sine',.34,32)}else if(i%2===0||i===3||i===11){tone(140,.1,'sine',.26,42)}   // çifte kick: dörtnala ritim
+  if(i===4||i===12){hiss(.14,2800,1100,.26,1);tone(200,.09,'triangle',.14,110);if(T.clap)hiss(.05,1800,1800,.12,2)}
+  if(T.fast?true:i%2===1)hiss(.03,9000,9000,.05,1,'highpass');
+  if(last&&i>=12)tone(260-(i-12)*38,.16,'sine',.3,70);   // tom dolgusu
+  if(last&&i>=13)hiss(.06,3500,1600,.2,1);
+  if(i===0&&(bar===0||T.crashAll||bar===2))hiss(1.1,9500,3500,.16,1,'highpass');if(i===15&&(bar&1))hiss(.12,2500,9000,.1,1);
+  // bas: sekizlik pompa + alt sine
+  tone(NOTE(r+(i%8===7?7:i%8===5?3:0)),sec*.92,'sawtooth',i%4===0?.13:.085);if(i%2===0)tone(NOTE(r-12),sec*1.9,'sine',.17);if(T.oct&&i%4===2)tone(NOTE(r+12),sec*1,'sawtooth',.05)   // dörtnala bas
+  // güç akoru vuruşları ve pad
+  if(T.stab.includes(i)){for(const d of [0,7,12]){tone(NOTE(r+12+d),sec*2.4,'sawtooth',.04);tone(NOTE(r+12+d)*1.007,sec*2.4,'square',.02)}tone(NOTE(r+12+q[1]),sec*2.4,'triangle',.04)}
+  if(i===0){for(const d of q){tone(NOTE(r+24+d),sec*15.5,'sawtooth',.014);tone(NOTE(r+36+d),sec*15.5,'sine',.02)}}
+  // hızlı arp
+  tone(NOTE(r+24+q[ARP[i]%3]+(ARP[i]>2?12:0)),sec*.8,T.arpT||'square',T.arpV||.024);
+  // ana melodi: pirinç + testere + alt oktav
+  for(const e of rf)if(e[0]===i){const n=NOTE(r+T.lb+e[1]),d=sec*e[2]*.96;tone(n,d,T.lead||'sawtooth',.105,n*(e[2]>3?1.01:1));tone(n*1.006,d,'square',.05);tone(n*2,d,'square',.02);tone(n*.5,d,'sine',.06);if(e[2]>3){tone(n*1.5,d*.8,'triangle',.025)}}
+  if(T.fx)T.fx(sn,i,bar,sec)}
 const BT=[
- {ms:80,roots:[40,41,40,38],ch:[[64,67,71,76],[65,69,72,77],[64,67,71,76],[62,66,69,74]],   // 0 · Karşı Koşucu: alev, çifte hücum
-  rf:[[0,0,1],[1,0,1],[2,1,1],[3,0,1],[4,4,2],[6,1,1],[7,0,1],[8,7,2],[10,5,1],[11,4,1],[12,1,2],[14,0,2]],
-  run(sn,i,bar,sec){const r=this.roots[bar],ch=this.ch[bar];
-    if(i%2===0)tone(NOTE(r+(i%8===6?12:0)),sec*1.8,'sawtooth',.06);if(i%4===3)tone(NOTE(r),.06,'sawtooth',.045);
-    tone(NOTE(ch[ARP[i]]),sec*.9,'square',.03);
-    _lead(this,bar,i,this.rf,36,(n,l)=>{tone(n,sec*l*.95,'sawtooth',.06);tone(n*1.006,sec*l*.9,'square',.03)});
-    if(i%4===0)tone(150,.12,'sine',.18,45);if(i===4||i===12)hiss(.1,2600,1600,.14,1);if(i%2===1)hiss(.03,9000,9000,.04,1,'highpass');
-    if(i===0&&bar%2===0)hiss(.6,1800,400,.05,.6);if(Math.random()<.2)hiss(.025,3000+Math.random()*2500,2000,.05,2)}},
- {ms:90,roots:[45,41,48,43],ch:[[57,60,64,69],[53,57,60,65],[60,64,67,72],[55,59,62,67]],   // 1 · Fuşya Koşucu: neon elektrik
-  rf:[[0,0,2],[2,7,1],[3,12,1],[4,10,2],[6,7,1],[7,3,1],[8,0,2],[10,7,2],[12,12,2],[14,15,2]],
-  run(sn,i,bar,sec){const r=this.roots[bar],ch=this.ch[bar];
-    if(i%2===0)tone(NOTE(r+(i%8>=4?12:0)),sec*1.2,'square',.05);tone(NOTE(ch[ARP[i]]+12),sec*.8,'square',.032);
-    _lead(this,bar,i,this.rf,24,(n,l)=>{tone(n,sec*l*.95,'sawtooth',.055);tone(n*2,sec*l*.5,'square',.02)});
-    if(i===0)tone(220,.18,'sawtooth',.045,2400);if(i===8&&bar%2)tone(2600,.1,'square',.03,300);if(i===14&&bar===3)hiss(.3,400,8000,.08,1);
-    if(i%4===0)tone(130,.14,'sine',.2,42);if(i===4||i===12){hiss(.12,2400,1400,.16,1);tone(1800,.04,'square',.03)}if(i%4===2)hiss(.05,9000,9000,.06,1,'highpass')}},
- {ms:130,roots:[38,34,31,33],ch:[[62,65,69,74],[58,62,65,70],[55,58,62,67],[57,61,64,69]],   // 2 · Buz Koşucu: buz sivrileri, soğuk çan sesleri
-  rf:[[0,0,6],[6,3,2],[8,7,4],[12,5,2],[14,3,2]],
-  run(sn,i,bar,sec){const r=this.roots[bar],ch=this.ch[bar];
-    if(i%2===0){const f=NOTE(ch[ARP[i]]+12);tone(f,sec*2,'sine',.035);tone(f,sec*2,'sine',.014,0,sec*3)}
-    if(i===0||i===8)tone(NOTE(r),sec*7,'sine',.1);
-    _lead(this,bar,i,this.rf,36,(n,l)=>ping(n,sec*l*1.2,.07));
-    if(i%8===4)hiss(.2,9000,3000,.035,1,'highpass');if(i===0&&bar===0)hiss(1.2,6000,12000,.03,6);if(Math.random()<.06)tone(3000+Math.random()*2000,.04,'square',.03,1500);
-    if(i===0)tone(70,.4,'sine',.14,40)}},
- {ms:92,roots:[36,41,43,36],ch:[[60,64,67,72],[65,69,72,77],[67,71,74,79],[60,64,67,72]],   // 3 · Altın Koşucu: altın fanfarı, yürüyüş ritmi
-  rf:[[0,0,2],[2,0,1],[3,0,1],[4,4,2],[6,0,1],[7,4,1],[8,7,4],[12,4,2],[14,7,2]],
-  run(sn,i,bar,sec){const r=this.roots[bar],ch=this.ch[bar];
-    if(i===0||i===8)tone(NOTE(r),sec*3,'triangle',.09);if(i===4||i===12){tone(NOTE(r+7),sec*3,'triangle',.07);tone(NOTE(ch[0]),sec*2,'square',.03);tone(NOTE(ch[1]),sec*2,'square',.03)}
-    _lead(this,bar,i,this.rf,36,(n,l)=>VO.brass(n,sec*l*.9,.06));
-    if(i%8===0)tone(140,.14,'sine',.2,50);if(i===4||i===12)hiss(.1,3000,1800,.14,1);if(i===14||i===15)hiss(.04,3000,2000,.08,1);
-    if(i%4===2)tone(2400+((i*131)%900),.05,'sine',.04,3200);if(i===0)hiss(.6,8000,5000,.05,1,'highpass')}},
- {ms:105,roots:[38,39,38,37],ch:[[62,65,68,71],[63,66,69,72],[62,65,68,71],[61,64,67,70]],   // 4 · Zehir Koşucu: zehir bulutu, sinsi baloncuklar
-  rf:[[0,0,3],[3,1,1],[4,0,2],[6,-1,2],[8,3,3],[11,2,1],[12,3,2],[14,1,2]],
-  run(sn,i,bar,sec){const r=this.roots[bar],ch=this.ch[bar];
-    if(i%4===0)tone(NOTE(r),sec*3,'sawtooth',.05,NOTE(r)*.97);
-    if(i%2===1||Math.random()<.2)tone(NOTE(ch[ARP[i]]),sec*.7,'triangle',.03);if(Math.random()<.3)bubble(0,300+Math.random()*400);
-    _lead(this,bar,i,this.rf,36,(n,l)=>{tone(n,sec*l,'sine',.06,n*1.03);tone(n*1.01,sec*l,'sine',.04,n*.98)});
-    if(i===0||i===3)tone(70,.12,'sine',.2,40);if(i===8)hiss(.5,500,200,.05,.8,'lowpass');if(i%4===2)hiss(.04,4000,2500,.04,2)}},
- {ms:108,roots:[33,31,29,28],ch:[[57,60,64,69],[55,58,62,67],[53,56,60,65],[52,56,59,64]],   // 5 · Ölüm Koşucusu: kara şimşek, org ve ağıt çanı
-  rf:[[0,0,6],[6,-2,2],[8,0,4],[12,3,3],[15,2,1]],
-  run(sn,i,bar,sec){const r=this.roots[bar];
-    if(i===0){tone(NOTE(r+12),sec*15,'sawtooth',.035);tone(NOTE(r+19),sec*15,'square',.02);tone(NOTE(r+24),sec*15,'sine',.03);ping(NOTE(r+48),2,.09)}
-    if(i===8)ping(NOTE(r+36),1.4,.05);if(i%8===0)tone(NOTE(r),sec*6,'sawtooth',.08,NOTE(r)*.98);
-    _lead(this,bar,i,this.rf,36,(n,l)=>{tone(n,sec*l,'sawtooth',.045);tone(n,sec*l,'sine',.04)});
-    if(i===0||i===8)tone(80,.3,'sine',.3,28);if(i===4||i===12)hiss(.16,1800,500,.14,1);if(i===0&&bar===3)hiss(1.2,300,60,.08,.7,'lowpass');if(Math.random()<.08)hiss(.3,3000,1500,.025,6)}}];
+ {ms:78,roots:[40,41,40,38],qual:['m','m','m','m'],lb:24,stab:[0,3,6,10],drive:1,fast:1,oct:1,   // 0 · Karşı Koşucu: alev
+  rA:[[0,0,2],[2,0,1],[3,3,1],[4,7,2],[6,5,1],[7,3,1],[8,7,4],[12,10,2],[14,12,2]],
+  rB:[[0,12,2],[2,10,1],[3,7,1],[4,8,2],[6,7,1],[7,5,1],[8,3,2],[10,5,2],[12,7,4]],
+  fx(sn,i){if(i%4===1&&Math.random()<.55)hiss(.04,3000+Math.random()*3000,1800,.07,2);if(i===0)hiss(.7,1500,300,.07,.6);if(i===8)tone(900,.3,'sawtooth',.03,200)}},
+ {ms:76,roots:[45,41,48,43],qual:['m','M','M','M'],lb:24,stab:[0,2,6,8,12],drive:1,fast:1,crashAll:1,lead:'sawtooth',   // 1 · Fuşya Koşucu: neon elektrik
+  rA:[[0,0,2],[2,7,1],[3,12,1],[4,10,2],[6,7,1],[7,3,1],[8,0,2],[10,7,2],[12,12,4]],
+  rB:[[0,12,1],[1,10,1],[2,7,2],[4,5,2],[6,7,2],[8,12,2],[10,14,2],[12,15,4]],
+  fx(sn,i,bar){if(i===0)tone(220,.25,'sawtooth',.05,2600);if(i===8)tone(3200,.12,'square',.04,300);if(i===14&&bar===3)hiss(.35,300,9000,.12,1);if(i%4===2)tone(1700+((sn*97)%900),.04,'square',.03)}},
+ {ms:92,roots:[38,34,31,33],qual:['m','M','M','M'],lb:24,stab:[0,3,6,10,14],drive:1,fast:1,clap:1,arpT:'square',arpV:.026,lead:'sawtooth',   // 2 · Buz Koşucu: koro ve çan
+  rA:[[0,0,6],[6,3,2],[8,7,6],[14,5,2]],
+  rB:[[0,10,4],[4,7,2],[6,5,2],[8,3,4],[12,7,4]],
+  fx(sn,i,bar,sec){if(i%8===0)ping(NOTE(this.roots[bar]+48),sec*8,.07);if(i%4===2)ping(NOTE(this.roots[bar]+43+((sn>>3)%3)*2),sec*3,.04);if(i===0){for(const d of [12,19,24])tone(NOTE(this.roots[bar]+d+12),sec*15,'sine',.03)}if(i%8===4)hiss(.2,9500,3500,.04,1,'highpass')}},
+ {ms:82,roots:[36,41,43,36],qual:['M','M','M','M'],lb:24,stab:[0,3,6,8,12],drive:1,fast:1,oct:1,clap:1,crashAll:1,   // 3 · Altın Koşucu: kahramanlık fanfarı
+  rA:[[0,0,2],[2,0,1],[3,0,1],[4,4,2],[6,0,1],[7,4,1],[8,7,4],[12,4,2],[14,7,2]],
+  rB:[[0,7,2],[2,7,1],[3,7,1],[4,11,2],[6,7,1],[7,11,1],[8,12,4],[12,11,2],[14,12,2]],
+  fx(sn,i,bar,sec){if(i===12||i===14)hiss(.05,3200,2200,.12,1);if(i%4===2)tone(2400+((i*131)%900),.05,'sine',.045,3200);if(i===0&&bar===3)hiss(.9,6000,12000,.06,3)}},
+ {ms:84,roots:[38,39,38,37],qual:['m','m','m','m'],lb:24,stab:[0,3,6,10,14],drive:1,fast:1,   // 4 · Zehir Koşucu: sinsi ve kaynayan
+  rA:[[0,0,3],[3,1,1],[4,0,2],[6,-1,2],[8,3,3],[11,2,1],[12,3,2],[14,1,2]],
+  rB:[[0,7,3],[3,8,1],[4,7,2],[6,6,2],[8,10,3],[11,8,1],[12,7,2],[14,3,2]],
+  fx(sn,i,bar,sec){const r=this.roots[bar];if(i%4===0)tone(NOTE(r+12),sec*3,'sawtooth',.05,NOTE(r+12)*.9);if(i%2===1&&Math.random()<.5)bubble(0,300+Math.random()*500);if(i===8)hiss(.5,500,200,.06,.8,'lowpass')}},
+ {ms:88,roots:[33,31,29,28],qual:['m','M','M','M'],lb:24,stab:[0,4,8,12],drive:1,oct:1,crashAll:1,clap:1,lead:'sawtooth',   // 5 · Ölüm Koşucusu: org, çan, destansı ağıt
+  rA:[[0,0,6],[6,-2,2],[8,0,4],[12,3,3],[15,2,1]],
+  rB:[[0,7,6],[6,5,2],[8,7,4],[12,10,3],[15,9,1]],
+  fx(sn,i,bar,sec){const r=this.roots[bar];if(i===0){for(const d of [12,19,24,31])tone(NOTE(r+d),sec*15,'sawtooth',.03);ping(NOTE(r+48),2.4,.1);tone(55,1.2,'sine',.3,30)}if(i===8)ping(NOTE(r+36),1.6,.06);if(i===4||i===12)tone(95,.4,'sine',.28,40);if(i===0&&bar===3)hiss(1.6,300,60,.1,.7,'lowpass')}}];
 /* ===== Dünya: gökyüzü, gece/gündüz, mekanlar, hava durumu ===== */
 const PLACES=[
   {name:'ÇİN SEDDİ',ground:'#8a7a5a',top:'#b6a070',edge:'#6a5a3e'},
